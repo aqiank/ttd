@@ -500,10 +500,29 @@ func main() {
 						MaxAge: 12 * time.Hour,
 					}))
 
-					log.Debug(contentPath)
-
 					// Get multiple items (events or locations)
 					r.GET("/items", func(c *gin.Context) {
+						var size int = 10
+
+						sizeStr := c.Query("size")
+						if sizeStr != "" {
+							var err error
+
+							size, err = strconv.Atoi(sizeStr)
+							if err != nil {
+								log.Error(err)
+								c.JSON(400, gin.H{
+									"status":  "error",
+									"message": "size is not a valid number",
+								})
+								return
+							}
+						}
+
+						if size < 0 {
+							size = 1
+						}
+
 						db, err := dbConn()
 						if err != nil {
 							log.Error(err)
@@ -515,7 +534,7 @@ func main() {
 						}
 						defer db.Close()
 
-						rows, err := db.Query("SELECT id, data, created_at, updated_at FROM items")
+						rows, err := db.Query("SELECT id, data, created_at, updated_at FROM items LIMIT $1", size)
 						if err != nil {
 							log.Error(err)
 							c.JSON(500, gin.H{
