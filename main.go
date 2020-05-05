@@ -665,6 +665,16 @@ func main() {
 						}
 						defer db.Close()
 
+						// Check for images and store them as files
+						if err = storeImages(data); err != nil {
+							log.Error(err)
+							c.JSON(500, gin.H{
+								"status":  "error",
+								"message": "could not store images to the filesystem",
+							})
+							return
+						}
+
 						dataBytes, err := json.Marshal(data)
 						if err != nil {
 							log.Error(err)
@@ -722,6 +732,16 @@ func main() {
 							return
 						}
 						defer db.Close()
+
+						// Check for images and store them as files
+						if err = storeImages(data); err != nil {
+							log.Error(err)
+							c.JSON(500, gin.H{
+								"status":  "error",
+								"message": "could not store images to the filesystem",
+							})
+							return
+						}
 
 						dataBytes, err := json.Marshal(data)
 						if err != nil {
