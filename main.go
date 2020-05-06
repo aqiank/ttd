@@ -717,6 +717,8 @@ func main() {
 						})
 					})
 
+					log.Info("Content will be generated at \"", c.String("zola-path"), "\"")
+
 					r.Run(c.String("host") + ":" + c.String("port"))
 					return nil
 				},
