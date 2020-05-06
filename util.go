@@ -9,7 +9,8 @@ import (
 	"crypto/sha1"
 )
 
-// Store base64 images from data into the filesystem
+// storeImages stores base64 images from data into the filesystem
+// and replaces the image data with SHA1 checksum in the map
 func storeImages(data map[string]interface{}) (err error) {
 	var imageHash string
 
