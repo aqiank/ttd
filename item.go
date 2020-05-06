@@ -8,3 +8,8 @@ type Item struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// ItemCommonData is just a one-off structure for retrieving "type" from an Item's data
+type ItemCommonData struct {
+	Type string `json:"type"`
+}
