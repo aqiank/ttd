@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	zolaPath string // The path to the Zola directory
+	zolaPath  string // The path to the Zola directory
+	dbConnStr string // The database connection string
 )
 
 // generateLocationContent generates static-site content for Location page to be used by Zola
@@ -90,11 +91,13 @@ func generateLocationContent(location Location) error {
 }
 
 func dbConn() (db *sql.DB, err error) {
-	db, err = sql.Open("postgres", "user=ttd dbname=ttd password=abc123 sslmode=disable")
+	db, err = sql.Open("postgres", dbConnStr)
 	return
 }
 
 func main() {
+	dbConnStr = os.Getenv("DATABASE_URL")
+
 	levelStr := os.Getenv("LOGLEVEL")
 	if levelStr == "" {
 		levelStr = "ERROR"
