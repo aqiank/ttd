@@ -303,10 +303,10 @@ func main() {
 						Value: "5000",
 					},
 					&cli.StringFlag{
-						Name:        "content-path",
+						Name:        "zola-path",
 						Value:       "",
-						Destination: &contentPath,
-						Usage:       "Set the path where content files will be located",
+						Destination: &zolaPath,
+						Usage:       "Set the path where Zola files will be located",
 					},
 				},
 				Action: func(c *cli.Context) error {
