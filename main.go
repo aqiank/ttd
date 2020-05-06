@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/BurntSushi/toml"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -25,19 +24,6 @@ type CommonData struct {
 	Type string `json:"type"`
 }
 
-// LocationAnswers is structure used to store answers from the command-line prompt
-type LocationAnswers struct {
-	Title         string
-	Description   string
-	Address       string
-	Coordinates   string
-	Phone         string
-	CoverImageURL string
-	ImageURLs     string
-	Tags          string
-	OpeningHours  string
-}
-
 // ZolaLocation is the format of Location used by Zola
 type ZolaLocation struct {
 	Title string `toml:"title"`
@@ -46,6 +32,7 @@ type ZolaLocation struct {
 		Address       string                           `toml:"address"`
 		Coordinates   []float64                        `toml:"coordinates"`
 		Phone         string                           `toml:"phone"`
+		WebsiteURL    string                           `toml:"website_url"`
 		CoverImageURL string                           `toml:"cover_image_url"`
 		ImageURLs     []string                         `toml:"image_urls"`
 		Tags          []string                         `toml:"tags"`
@@ -107,53 +94,8 @@ type LocationOpeningHour struct {
 }
 
 var (
-	contentPath string // The path to the Zola content directory
+	zolaPath string // The path to the Zola directory
 )
-
-// Prompt
-// ------
-// 1. What is the title? Rocky Master @ Delfi Orchard
-// 2. What is the description?
-//    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse augue libero, venenatis non lacus ac, sodales viverra ipsum. Duis tincidunt ullamcorper risus lacinia pharetra. In velit purus, tristique vel dolor at, laoreet egestas elit. Ut feugiat ipsum velit, in ullamcorper quam venenatis interdum. Donec consectetur dapibus purus, sed luctus eros aliquam non. Sed vel diam erat. Donec tincidunt sodales libero ornare vehicula. Fusce tristique velit enim, ut rutrum nulla convallis ac. Nulla facilisi. Suspendisse potenti. Nunc a nisl non diam placerat aliquam.
-// 3. What is the address? 402 Orchard Road #01-02/03, Singapore 238876
-// 4. What is the coordinates? 1.3070619,103.8293162
-// 5. What is the phone number? 6235 0998
-// 6. Give an URL to the cover image: https://lh5.googleusercontent.com/p/AF1QipOCjGs3ug6bGPYSR4LIGSHotUT3iieFhTM7YuGB=w203-h135-k-no
-// 7. Give more image URLs?
-// https://lh3.ggpht.com/p/AF1QipOp92DZ9ebdILmFCQsCAVGmlh5tSXgTXKpzOwDz=s1536
-// https://lh3.ggpht.com/p/AF1QipPQeZPXD4BAJdMTOEbpHrEgUbyo6EBllNBMrq_A=s1536
-// https://lh3.ggpht.com/p/AF1QipMBV6yAqM7eIVqZj8VyjoiipgY0Acl8okb4jRzW=s1536
-//
-// 8. Give some tags for this location: restaurant, cafe, food, drinks
-// 9. List the opening hours:
-//       Monday: 7.30AM-9.30PM
-//      Tuesday: 7.30AM-9.30PM
-//    Wednesday: 7.30AM-9.30PM
-//     Thursday: 7.30AM-9.30PM
-//       Friday: 7.30AM-9.30PM
-//     Saturday: 7.30AM-9.30PM
-//       Sunday: 7.30AM-9.30PM
-func newLocation(locationAnswers LocationAnswers) (location ZolaLocation, err error) {
-	location.Title = locationAnswers.Title
-	location.Extra.Description = locationAnswers.Description
-	location.Extra.Address = locationAnswers.Address
-	location.Extra.Phone = locationAnswers.Phone
-	location.Extra.CoverImageURL = locationAnswers.CoverImageURL
-	location.Extra.ImageURLs = strings.Split(locationAnswers.ImageURLs, "\n")
-	location.Extra.Tags = strings.Split(locationAnswers.Tags, ",")
-
-	location.Extra.Coordinates, err = parseCoordinates(locationAnswers.Coordinates)
-	if err != nil {
-		return
-	}
-
-	location.Extra.OpeningHours, err = parseOpeningHoursMap(locationAnswers.OpeningHours)
-	if err != nil {
-		return
-	}
-
-	return
-}
 
 func parseCoordinates(s string) (coordinates []float64, err error) {
 	tokens := strings.Split(s, ",")
@@ -341,128 +283,6 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
-			{
-				Name:    "new",
-				Aliases: []string{"c"},
-				Usage:   "generate new item",
-				Action: func(c *cli.Context) error {
-					return nil
-				},
-				Subcommands: []*cli.Command{
-					{
-						Name:  "location",
-						Usage: "generate a new location",
-						Action: func(c *cli.Context) error {
-							var qs = []*survey.Question{
-								{
-									Name:     "title",
-									Prompt:   &survey.Input{Message: "What is the title?"},
-									Validate: survey.Required,
-								},
-								{
-									Name:     "description",
-									Prompt:   &survey.Multiline{Message: "What is the description?"},
-									Validate: survey.Required,
-								},
-								{
-									Name:     "address",
-									Prompt:   &survey.Input{Message: "What is the address?"},
-									Validate: survey.Required,
-								},
-								{
-									Name:   "coordinates",
-									Prompt: &survey.Input{Message: "What is the coordinates?"},
-									Validate: func(v interface{}) (err error) {
-										var s string
-										var ok bool
-
-										if s, ok = v.(string); !ok {
-											err = errors.New("Value is not string")
-											return
-										}
-
-										if _, err = parseCoordinates(s); err != nil {
-											return
-										}
-
-										return
-									},
-								},
-								{
-									Name:     "phone",
-									Prompt:   &survey.Input{Message: "What is the phone number?"},
-									Validate: survey.Required,
-								},
-								{
-									Name:     "coverImageURL",
-									Prompt:   &survey.Input{Message: "Give an URL to the cover image:"},
-									Validate: survey.Required,
-								},
-								{
-									Name:     "imageURLs",
-									Prompt:   &survey.Multiline{Message: "Give more image URLs:"},
-									Validate: survey.Required,
-								},
-								{
-									Name:   "tags",
-									Prompt: &survey.Input{Message: "Give some tags"},
-									Validate: func(v interface{}) (err error) {
-										var s string
-										var ok bool
-
-										if s, ok = v.(string); !ok {
-											err = errors.New("Value is not string")
-											return
-										}
-
-										if _, err = parseTags(s); err != nil {
-											return
-										}
-
-										return
-									},
-								},
-								{
-									Name:   "openingHours",
-									Prompt: &survey.Multiline{Message: "List the opening hours"},
-									Validate: func(v interface{}) (err error) {
-										var s string
-										var ok bool
-
-										if s, ok = v.(string); !ok {
-											err = errors.New("Value is not string")
-											return
-										}
-
-										if _, err = parseOpeningHoursMap(s); err != nil {
-											return
-										}
-
-										return
-									},
-								},
-							}
-
-							var locationAnswers LocationAnswers
-
-							if err := survey.Ask(qs, &locationAnswers); err != nil {
-								return err
-							}
-
-							location, err := newLocation(locationAnswers)
-							if err != nil {
-								return err
-							}
-
-							if err := generateLocationContent(location); err != nil {
-								return err
-							}
-
-							return nil
-						},
-					},
-				},
-			},
 			{
 				Name:    "serve",
 				Aliases: []string{"s"},
