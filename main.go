@@ -192,14 +192,18 @@ func parseOpeningHour(s string) (openingHour LocationOpeningHour, err error) {
 		return
 	}
 
-	startMinute, err = strconv.Atoi(startTokens[1])
-	if err != nil {
-		return
+	if len(startTokens) > 1 {
+		startMinute, err = strconv.Atoi(startTokens[1])
+		if err != nil {
+			return
+		}
 	}
 
-	endMinute, err = strconv.Atoi(endTokens[1])
-	if err != nil {
-		return
+	if len(endTokens) > 1 {
+		endMinute, err = strconv.Atoi(endTokens[1])
+		if err != nil {
+			return
+		}
 	}
 
 	if startHour < 0 || startHour > 24 {
