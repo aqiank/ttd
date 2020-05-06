@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -44,15 +45,16 @@ type ZolaLocation struct {
 // For example, a store name, address, opening hours, phone number,
 // website URL, etc..
 type Location struct {
-	Title         string                           `toml:"title"`
-	Description   string                           `toml:"description"`
-	Address       string                           `toml:"address"`
-	Coordinates   []float64                        `toml:"coordinates"`
-	Phone         string                           `toml:"phone"`
-	CoverImageURL string                           `toml:"cover_image_url"`
-	ImageURLs     []string                         `toml:"image_urls"`
-	Tags          []string                         `toml:"tags"`
-	OpeningHours  map[string][]LocationOpeningHour `toml:"opening_hours"`
+	Title         string            `toml:"title"`
+	Description   string            `toml:"description"`
+	Address       string            `toml:"address"`
+	Coordinates   []float64         `toml:"coordinates"`
+	Phone         string            `toml:"phone"`
+	WebsiteURL    string            `toml:"website_url",json:"websiteURL"`
+	CoverImageURL string            `toml:"cover_image_url",json:"coverImageURL"`
+	ImageURLs     []string          `toml:"image_urls",json:"imageURLs"`
+	Tags          []string          `toml:"tags"`
+	OpeningHours  map[string]string `toml:"opening_hours",json:"openingHours"`
 }
 
 // LocationFromData converts a JSONB byte-array into a Location structure
@@ -62,16 +64,35 @@ func LocationFromData(data []byte) (location Location, err error) {
 }
 
 // Zola converts native format of Location into ZolaLocation
-func (location *Location) Zola() (zolaLocation ZolaLocation) {
+func (location *Location) Zola() (zolaLocation ZolaLocation, err error) {
 	zolaLocation.Title = location.Title
 	zolaLocation.Extra.Description = location.Description
 	zolaLocation.Extra.Address = location.Address
 	zolaLocation.Extra.Coordinates = location.Coordinates
 	zolaLocation.Extra.Phone = location.Phone
-	zolaLocation.Extra.CoverImageURL = location.CoverImageURL
-	zolaLocation.Extra.ImageURLs = location.ImageURLs
+	zolaLocation.Extra.WebsiteURL = location.WebsiteURL
+
+	// Append base path for images to be loaded by Zola
+	zolaLocation.Extra.CoverImageURL = fmt.Sprintf("/img/cover/location/%s.jpg", location.CoverImageURL)
+	for _, imageURL := range location.ImageURLs {
+		zolaLocation.Extra.ImageURLs = append(zolaLocation.Extra.ImageURLs, fmt.Sprintf("/img/location/%s/%s.jpg", location.Title, imageURL))
+	}
+
 	zolaLocation.Extra.Tags = location.Tags
-	zolaLocation.Extra.OpeningHours = location.OpeningHours
+	zolaLocation.Extra.OpeningHours, err = location.ZolaOpeningHours()
+	return
+}
+
+// ZolaOpeningHours converts the OpeningHours representation in Location into the Zola counterpart
+func (location *Location) ZolaOpeningHours() (m map[string][]LocationOpeningHour, err error) {
+	m = make(map[string][]LocationOpeningHour)
+
+	for k, v := range location.OpeningHours {
+		if m[k], err = parseOpeningHours(v); err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -230,8 +251,13 @@ func parseOpeningHour(s string) (openingHour LocationOpeningHour, err error) {
 }
 
 // generateLocationContent generates static-site content for Location page to be used by Zola
-func generateLocationContent(location ZolaLocation) error {
-	filePath := fmt.Sprintf("%s/location/%s", contentPath, location.Title)
+func generateLocationContent(location Location) error {
+	zolaLocation, err := location.Zola()
+	if err != nil {
+		return err
+	}
+
+	filePath := fmt.Sprintf("%s/content/locations/%s.md", zolaPath, location.Title)
 
 	output, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
@@ -244,7 +270,7 @@ func generateLocationContent(location ZolaLocation) error {
 	}
 
 	encoder := toml.NewEncoder(output)
-	err = encoder.Encode(location)
+	err = encoder.Encode(zolaLocation)
 	if err != nil {
 		return err
 	}
@@ -253,8 +279,45 @@ func generateLocationContent(location ZolaLocation) error {
 		return err
 	}
 
-	if _, err = output.Write([]byte(location.Extra.Description)); err != nil {
+	if _, err = output.Write([]byte(location.Description)); err != nil {
 		return err
+	}
+
+	// Create the cover image directory in Zola if it doesn't exist
+	coverImageDirPath := fmt.Sprintf("%s/static/img/cover/location", zolaPath)
+	if err := os.MkdirAll(coverImageDirPath, 0700); err != nil {
+		return err
+	}
+
+	// Read the cover image file
+	coverImageData, err := ioutil.ReadFile("files/" + location.CoverImageURL)
+	if err != nil {
+		return err
+	}
+
+	// Write the cover image file to Zola
+	coverImagePath := fmt.Sprintf("%s/static%s", zolaPath, zolaLocation.Extra.CoverImageURL)
+	if err = ioutil.WriteFile(coverImagePath, coverImageData, 0600); err != nil {
+		return err
+	}
+
+	// Create the images directory in Zola if it doesn't exist
+	imagesDirPath := fmt.Sprintf("%s/static/img/location/%s", zolaPath, location.Title)
+	if err := os.MkdirAll(imagesDirPath, 0700); err != nil {
+		return err
+	}
+
+	for i, imageURL := range location.ImageURLs {
+		imageData, err := ioutil.ReadFile("files/" + imageURL)
+		if err != nil {
+			return err
+		}
+
+		// Copy the image file
+		imagePath := fmt.Sprintf("%s/static%s", zolaPath, zolaLocation.Extra.ImageURLs[i])
+		if err = ioutil.WriteFile(imagePath, imageData, 0600); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -631,7 +694,9 @@ func main() {
 					})
 
 					// Run the static site content generator
-					r.POST("/generate", func(c *gin.Context) {
+					r.POST("/generate/:typ", func(c *gin.Context) {
+						typ := c.Param("typ")
+
 						db, err := dbConn()
 						if err != nil {
 							log.Error(err)
@@ -643,7 +708,7 @@ func main() {
 						}
 						defer db.Close()
 
-						rows, err := db.Query("SELECT id, data, created_at, updated_at FROM items")
+						rows, err := db.Query("SELECT id, data, created_at, updated_at FROM items WHERE data->>'type' = $1", typ)
 						if err != nil {
 							return
 						}
@@ -679,8 +744,6 @@ func main() {
 							}
 
 							switch commonData.Type {
-							case "event":
-								// TODO
 							case "location":
 								location, err := LocationFromData(item.Data)
 								if err != nil {
@@ -692,7 +755,7 @@ func main() {
 									return
 								}
 
-								if err := generateLocationContent(location.Zola()); err != nil {
+								if err := generateLocationContent(location); err != nil {
 									log.Error(err)
 									c.JSON(500, gin.H{
 										"status":  "error",
@@ -700,6 +763,13 @@ func main() {
 									})
 									return
 								}
+							default:
+								msg := fmt.Sprintf("Item of type \"%s\" is not supported for content generation", typ)
+								log.Warn(msg)
+								c.JSON(500, gin.H{
+									"status":  "error",
+									"message": msg,
+								})
 							}
 						}
 
