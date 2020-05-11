@@ -6,11 +6,16 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ZolaLocation is the format of Location used by Zola
 type ZolaLocation struct {
-	Title string `toml:"title"`
+	ID         int64  `toml:"id"`
+	Title      string `toml:"title"`
+	Taxonomies struct {
+		Tags []string `toml:"tags"`
+	} `toml:"taxonomies"`
 	Extra struct {
 		Description   string                           `toml:"-"`
 		Address       string                           `toml:"address"`
@@ -19,15 +24,17 @@ type ZolaLocation struct {
 		WebsiteURL    string                           `toml:"website_url"`
 		CoverImageURL string                           `toml:"cover_image_url"`
 		ImageURLs     []string                         `toml:"image_urls"`
-		Tags          []string                         `toml:"tags"`
 		OpeningHours  map[string][]LocationOpeningHour `toml:"opening_hours"`
 	} `toml:"extra"`
+	CreatedAt time.Time `toml:"date"`
+	UpdatedAt time.Time `toml:"updated_at"`
 }
 
 // Location is a structure that stores location information.
 // For example, a store name, address, opening hours, phone number,
 // website URL, etc..
 type Location struct {
+	ID            int64             `toml:"id"`
 	Title         string            `toml:"title"`
 	Description   string            `toml:"description"`
 	Address       string            `toml:"address"`
@@ -38,6 +45,8 @@ type Location struct {
 	ImageURLs     []string          `toml:"image_urls" json:"imageURLs"`
 	Tags          []string          `toml:"tags"`
 	OpeningHours  map[string]string `toml:"opening_hours" json:"openingHours"`
+	CreatedAt     time.Time         `toml:"created_at"`
+	UpdatedAt     time.Time         `toml:"updated_at"`
 }
 
 // LocationFromData converts a JSONB byte-array into a Location structure
@@ -46,8 +55,23 @@ func LocationFromData(data []byte) (location Location, err error) {
 	return
 }
 
+// LocationFromItem creates a Location out of an Item
+func LocationFromItem(item Item) (location Location, err error) {
+	location, err = LocationFromData(item.Data)
+	if err != nil {
+		return
+	}
+
+	location.ID = item.ID
+	location.CreatedAt = item.CreatedAt
+	location.UpdatedAt = item.UpdatedAt
+
+	return
+}
+
 // Zola converts native format of Location into ZolaLocation
 func (location *Location) Zola() (zolaLocation ZolaLocation, err error) {
+	zolaLocation.ID = location.ID
 	zolaLocation.Title = location.Title
 	zolaLocation.Extra.Description = location.Description
 	zolaLocation.Extra.Address = location.Address
@@ -58,11 +82,13 @@ func (location *Location) Zola() (zolaLocation ZolaLocation, err error) {
 	// Append base path for images to be loaded by Zola
 	zolaLocation.Extra.CoverImageURL = fmt.Sprintf("/img/cover/location/%s.jpg", location.CoverImageURL)
 	for _, imageURL := range location.ImageURLs {
-		zolaLocation.Extra.ImageURLs = append(zolaLocation.Extra.ImageURLs, fmt.Sprintf("/img/location/%s/%s.jpg", location.Title, imageURL))
+		zolaLocation.Extra.ImageURLs = append(zolaLocation.Extra.ImageURLs, fmt.Sprintf("/img/location/%d/%s.jpg", location.ID, imageURL))
 	}
 
-	zolaLocation.Extra.Tags = location.Tags
+	zolaLocation.Taxonomies.Tags = location.Tags
 	zolaLocation.Extra.OpeningHours, err = location.ZolaOpeningHours()
+	zolaLocation.CreatedAt = location.CreatedAt
+	zolaLocation.UpdatedAt = location.UpdatedAt
 	return
 }
 

@@ -25,7 +25,7 @@ func generateLocationContent(location Location) error {
 		return err
 	}
 
-	filePath := fmt.Sprintf("%s/content/locations/%s.md", zolaPath, location.Title)
+	filePath := fmt.Sprintf("%s/content/locations/%d.md", zolaPath, location.ID)
 
 	output, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
@@ -69,7 +69,7 @@ func generateLocationContent(location Location) error {
 	}
 
 	// Create the images directory in Zola if it doesn't exist
-	imagesDirPath := fmt.Sprintf("%s/static/img/location/%s", zolaPath, location.Title)
+	imagesDirPath := fmt.Sprintf("%s/static/img/location/%d", zolaPath, location.ID)
 	if err := os.MkdirAll(imagesDirPath, 0700); err != nil {
 		return err
 	}

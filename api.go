@@ -146,6 +146,10 @@ func getItem(c *gin.Context) {
 			return
 		}
 
+		location.ID = item.ID
+		location.CreatedAt = item.CreatedAt
+		location.UpdatedAt = item.UpdatedAt
+
 		c.JSON(200, location)
 	default:
 		c.JSON(500, gin.H{
@@ -371,7 +375,7 @@ func postGenerate(c *gin.Context) {
 
 		switch itemCommonData.Type {
 		case "location":
-			location, err := LocationFromData(item.Data)
+			location, err := LocationFromItem(item)
 			if err != nil {
 				log.Error(err)
 				c.JSON(500, gin.H{
