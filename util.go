@@ -3,13 +3,160 @@ package main
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
 
 	"crypto/sha1"
+
+	"github.com/BurntSushi/toml"
 )
+
+// generateLocationContent generates static-site content for Location page to be used by Zola
+func generateLocationContent(location Location) error {
+	zolaLocation, err := location.Zola()
+	if err != nil {
+		return err
+	}
+
+	filePath := fmt.Sprintf("%s/content/locations/%d.md", zolaPath, location.ID)
+
+	output, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer output.Close()
+
+	if _, err = output.Write([]byte("+++\n")); err != nil {
+		return err
+	}
+
+	encoder := toml.NewEncoder(output)
+	if err = encoder.Encode(zolaLocation); err != nil {
+		return err
+	}
+
+	if _, err = output.Write([]byte("+++\n")); err != nil {
+		return err
+	}
+
+	if _, err = output.Write([]byte(location.Description)); err != nil {
+		return err
+	}
+
+	// Create the cover image directory in Zola if it doesn't exist
+	coverImageDirPath := fmt.Sprintf("%s/static/img/cover/location", zolaPath)
+	if err := os.MkdirAll(coverImageDirPath, 0700); err != nil {
+		return err
+	}
+
+	// Read the cover image file
+	coverImageData, err := ioutil.ReadFile("files/" + location.CoverImageURL)
+	if err != nil {
+		return err
+	}
+
+	// Write the cover image file to Zola
+	coverImagePath := fmt.Sprintf("%s/static%s", zolaPath, zolaLocation.Extra.CoverImageURL)
+	if err = ioutil.WriteFile(coverImagePath, coverImageData, 0600); err != nil {
+		return err
+	}
+
+	// Create the images directory in Zola if it doesn't exist
+	imagesDirPath := fmt.Sprintf("%s/static/img/location/%d", zolaPath, location.ID)
+	if err := os.MkdirAll(imagesDirPath, 0700); err != nil {
+		return err
+	}
+
+	for i, imageURL := range location.ImageURLs {
+		imageData, err := ioutil.ReadFile("files/" + imageURL)
+		if err != nil {
+			return err
+		}
+
+		// Copy the image file
+		imagePath := fmt.Sprintf("%s/static%s", zolaPath, zolaLocation.Extra.ImageURLs[i])
+		if err = ioutil.WriteFile(imagePath, imageData, 0600); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// generateEventContent generates static-site content for Event page to be used by Zola
+func generateEventContent(event Event) error {
+	zolaEvent, err := event.Zola()
+	if err != nil {
+		return err
+	}
+
+	filePath := fmt.Sprintf("%s/content/events/%d.md", zolaPath, event.ID)
+
+	output, err := os.OpenFile(filePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer output.Close()
+
+	if _, err = output.Write([]byte("+++\n")); err != nil {
+		return err
+	}
+
+	encoder := toml.NewEncoder(output)
+	if err = encoder.Encode(zolaEvent); err != nil {
+		return err
+	}
+
+	if _, err = output.Write([]byte("+++\n")); err != nil {
+		return err
+	}
+
+	if _, err = output.Write([]byte(event.Description)); err != nil {
+		return err
+	}
+
+	// Create the cover image directory in Zola if it doesn't exist
+	coverImageDirPath := fmt.Sprintf("%s/static/img/cover/event", zolaPath)
+	if err := os.MkdirAll(coverImageDirPath, 0700); err != nil {
+		return err
+	}
+
+	// Read the cover image file
+	coverImageData, err := ioutil.ReadFile("files/" + event.CoverImageURL)
+	if err != nil {
+		return err
+	}
+
+	// Write the cover image file to Zola
+	coverImagePath := fmt.Sprintf("%s/static%s", zolaPath, zolaEvent.Extra.CoverImageURL)
+	if err = ioutil.WriteFile(coverImagePath, coverImageData, 0600); err != nil {
+		return err
+	}
+
+	// Create the images directory in Zola if it doesn't exist
+	imagesDirPath := fmt.Sprintf("%s/static/img/event/%d", zolaPath, event.ID)
+	if err := os.MkdirAll(imagesDirPath, 0700); err != nil {
+		return err
+	}
+
+	for i, imageURL := range event.ImageURLs {
+		imageData, err := ioutil.ReadFile("files/" + imageURL)
+		if err != nil {
+			return err
+		}
+
+		// Copy the image file
+		imagePath := fmt.Sprintf("%s/static%s", zolaPath, zolaEvent.Extra.ImageURLs[i])
+		if err = ioutil.WriteFile(imagePath, imageData, 0600); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 // storeImages stores base64 images from data into the filesystem
 // and replaces the image data with SHA1 checksum in the map

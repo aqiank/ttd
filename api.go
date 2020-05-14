@@ -151,6 +151,23 @@ func getItem(c *gin.Context) {
 		location.UpdatedAt = item.UpdatedAt
 
 		c.JSON(200, location)
+	case "event":
+		var event Event
+
+		if err = json.Unmarshal(item.Data, &event); err != nil {
+			log.Error(err)
+			c.JSON(500, gin.H{
+				"status":  "error",
+				"message": "could not parse item data as Event structure",
+			})
+			return
+		}
+
+		event.ID = item.ID
+		event.CreatedAt = item.CreatedAt
+		event.UpdatedAt = item.UpdatedAt
+
+		c.JSON(200, event)
 	default:
 		c.JSON(500, gin.H{
 			"status":  "error",
@@ -390,6 +407,25 @@ func postGenerate(c *gin.Context) {
 				c.JSON(500, gin.H{
 					"status":  "error",
 					"message": "could not generate location content",
+				})
+				return
+			}
+		case "event":
+			event, err := EventFromItem(item)
+			if err != nil {
+				log.Error(err)
+				c.JSON(500, gin.H{
+					"status":  "error",
+					"message": "could not convert internal JSON into event structure",
+				})
+				return
+			}
+
+			if err := generateEventContent(event); err != nil {
+				log.Error(err)
+				c.JSON(500, gin.H{
+					"status":  "error",
+					"message": "could not generate event content",
 				})
 				return
 			}
