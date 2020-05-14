@@ -17,6 +17,7 @@ type ZolaLocation struct {
 		Tags []string `toml:"tags"`
 	} `toml:"taxonomies"`
 	Extra struct {
+		Type          string                           `toml:"type"`
 		Description   string                           `toml:"-"`
 		Address       string                           `toml:"address"`
 		Coordinates   []float64                        `toml:"coordinates"`
@@ -35,6 +36,7 @@ type ZolaLocation struct {
 // website URL, etc..
 type Location struct {
 	ID            int64             `toml:"id"`
+	Type          string            `toml:"type"`
 	Title         string            `toml:"title"`
 	Description   string            `toml:"description"`
 	Address       string            `toml:"address"`
@@ -73,6 +75,7 @@ func LocationFromItem(item Item) (location Location, err error) {
 func (location *Location) Zola() (zolaLocation ZolaLocation, err error) {
 	zolaLocation.ID = location.ID
 	zolaLocation.Title = location.Title
+	zolaLocation.Extra.Type = location.Type
 	zolaLocation.Extra.Description = location.Description
 	zolaLocation.Extra.Address = location.Address
 	zolaLocation.Extra.Coordinates = location.Coordinates
