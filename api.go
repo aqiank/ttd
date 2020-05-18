@@ -58,7 +58,7 @@ func getItems(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	items := make([]Item, 0)
+	items := make([]DecodedItem, 0)
 
 	for rows.Next() {
 		var item Item
@@ -77,7 +77,17 @@ func getItems(c *gin.Context) {
 			return
 		}
 
-		items = append(items, item)
+		decodedItem, err := item.Decode()
+		if err != nil {
+			log.Error(err)
+			c.JSON(500, gin.H{
+				"status":  "error",
+				"message": "could not decode an item",
+			})
+			return
+		}
+
+		items = append(items, decodedItem)
 	}
 
 	c.JSON(200, items)
